@@ -1,0 +1,138 @@
+`timescale 1ns/1ps
+
+module tb_exc_gen;
+
+  // Inputs
+  reg clk;
+  reg rst;
+  reg [31:0] instruction;
+  reg [31:0] pc;
+  reg csr_new_pc_req;
+  reg exe_new_pc_req;
+  reg wfi_req;
+  reg if_stall;
+  reg i_page_fault;
+
+  // Outputs
+  wire exc_req_o;
+  wire [3:0] exc_code_o;
+
+  // Instantiate the DUT (Device Under Test)
+  m_exc_gen dut (
+    .clk(clk),
+    .rst(rst),
+    .instruction(instruction),
+    .pc(pc),
+    .csr_new_pc_req(csr_new_pc_req),
+    .exe_new_pc_req(exe_new_pc_req),
+    .wfi_req(wfi_req),
+    .if_stall(if_stall),
+    .i_page_fault(i_page_fault),
+    .exc_req_o(exc_req_o),
+    .exc_code_o(exc_code_o)
+  );
+
+  // Clock generation
+  always #5 clk = ~clk; // 10ns clock period
+
+  // Task to reset inputs
+  task reset_inputs;
+    begin
+      instruction = 32'h0;
+      pc = 32'h0;
+      csr_new_pc_req = 1'b0;
+      exe_new_pc_req = 1'b0;
+      wfi_req = 1'b0;
+      if_stall = 1'b0;
+      i_page_fault = 1'b0;
+    end
+  endtask
+
+  // Simulation logic
+  initial begin
+    $dumpfile("tb_exc_gen.vcd"); // For waveform generation
+    $dumpvars(0, tb_exc_gen);
+
+    // Initialize clock and inputs
+    clk = 0;
+    rst = 1;
+    reset_inputs;
+
+    // Apply reset
+    #10;
+    rst = 0;
+    #10;
+
+    // Test Case 1: No exception (normal case)
+    #10;
+    pc = 32'h00000000; // Aligned PC
+    csr_new_pc_req = 1'b0;
+    exe_new_pc_req = 1'b0;
+    wfi_req = 1'b0;
+    if_stall = 1'b0;
+    i_page_fault = 1'b0;
+    #1;
+    $display("Test Case 1: No exception");
+    $display("exc_req_o = %b, exc_code_o = %d (Expected: 0, 14)", exc_req_o, exc_code_o);
+
+    // Test Case 2: PC misaligned
+    #10;
+    pc = 32'h00000003; // Misaligned PC
+    #1;
+    $display("Test Case 2: PC misaligned");
+    $display("exc_req_o = %b, exc_code_o = %d (Expected: 1, 0)", exc_req_o, exc_code_o);
+
+    // Test Case 3: Instruction page fault
+    #10;
+    pc = 32'h00000000; // Aligned PC
+    i_page_fault = 1'b1;
+    #1;
+    $display("Test Case 3: Instruction page fault");
+    $display("exc_req_o = %b, exc_code_o = %d (Expected: 1, 12)", exc_req_o, exc_code_o);
+
+    // Test Case 4: CSR new PC request (clears exception)
+    #10;
+    csr_new_pc_req = 1'b1;
+    #1;
+    $display("Test Case 4: CSR new PC request");
+    $display("exc_req_o = %b, exc_code_o = %d (Expected: 0, 14)", exc_req_o, exc_code_o);
+
+    // Test Case 5: Execution new PC request (clears exception)
+    #10;
+    csr_new_pc_req = 1'b0;
+    exe_new_pc_req = 1'b1;
+    #1;
+    $display("Test Case 5: Execution new PC request");
+    $display("exc_req_o = %b, exc_code_o = %d (Expected: 0, 14)", exc_req_o, exc_code_o);
+
+    // Test Case 6: WFI request (clears exception)
+    #10;
+    exe_new_pc_req = 1'b0;
+    wfi_req = 1'b1;
+    #1;
+    $display("Test Case 6: WFI request");
+    $display("exc_req_o = %b, exc_code_o = %d (Expected: 0, 14)", exc_req_o, exc_code_o);
+
+    // Test Case 7: Exception with stall
+    #10;
+    wfi_req = 1'b0;
+    pc = 32'h00000003; // Misaligned PC
+    if_stall = 1'b1; // Stall active
+    #1;
+    $display("Test Case 7: Exception with stall");
+    $display("exc_req_o = %b, exc_code_o = %d (Expected: 0, 14)", exc_req_o, exc_code_o);
+
+    // Test Case 8: No stall, previous exception continues
+    #10;
+    if_stall = 1'b0; // Stall inactive
+    #1;
+    $display("Test Case 8: No stall, previous exception continues");
+    $display("exc_req_o = %b, exc_code_o = %d (Expected: 1, 0)", exc_req_o, exc_code_o);
+
+    // Finish simulation
+    #10;
+    $display("Simulation completed.");
+    $finish;
+  end
+
+endmodule

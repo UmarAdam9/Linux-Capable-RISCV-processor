@@ -1,0 +1,29 @@
+module m_lsu(
+
+
+//from csr module (check lengths!!)
+input logic  satp_ppn,
+input logic	 en_vaddr,
+input logic	 mxr,
+input logic  tlb_flush,
+input logic  lsu_flush,
+input logic  en_ld_st_vaddr,
+input logic  dcache_flush,
+
+
+output logic lsu_req,
+output logic lsu_ack,
+
+
+	
+
+);
+
+
+
+
+
+
+
+
+endmodule

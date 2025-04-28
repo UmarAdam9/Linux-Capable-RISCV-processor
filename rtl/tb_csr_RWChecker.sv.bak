@@ -1,0 +1,79 @@
+`timescale 1ns/1ps
+
+module tb_csr_RWChecker;
+
+  // Inputs
+  reg [31:0] instruction;
+  reg [31:0] immediate;  // Unused in the module, but part of the inputs
+  reg [1:0] csr_ops;
+  reg       RegWrite_id2exe;
+
+  // Outputs
+  wire csr_rd_req;
+  wire csr_wr_req;
+  wire RegWrite;
+
+  // Instantiate the DUT (Device Under Test)
+  m_csr_RWChecker dut (
+    .instruction(instruction),
+    .immediate(immediate),
+    .csr_ops(csr_ops),
+    .RegWrite_id2exe(RegWrite_id2exe),
+    .csr_rd_req(csr_rd_req),
+    .csr_wr_req(csr_wr_req),
+    .RegWrite(RegWrite)
+  );
+
+  // Task to reset inputs
+  task reset_inputs;
+    begin
+      instruction = 32'h0;
+      immediate = 32'h0;  // Not used in the logic
+      csr_ops = 2'b00;    // CSR_OPS_NONE
+      RegWrite_id2exe = 1'b0;
+    end
+  endtask
+
+  // Simulation Logic
+  initial begin
+    $dumpfile("tb_csr_RWChecker.vcd");  // For waveform generation
+    $dumpvars(0, tb_csr_RWChecker);
+
+    // Initialize Inputs
+    reset_inputs;
+
+    // Test Case 1: CSR_OPS_WRITE, valid destination register (rd)
+    #10;
+    csr_ops = 2'b01;  // CSR_OPS_WRITE
+    instruction = 32'h00A00093;  // rd = x1, rs1 = x0
+    $display("Test Case 1: CSR_OPS_WRITE");
+    $display("csr_rd_req = %b, csr_wr_req = %b, RegWrite = %b (Expected: csr_rd_req = 1, csr_wr_req = 1, RegWrite = 1)", csr_rd_req, csr_wr_req, RegWrite);
+
+    // Test Case 2: CSR_OPS_SET, valid source register (rs1)
+    #10;
+    csr_ops = 2'b10;  // CSR_OPS_SET
+    instruction = 32'h00A08093;  // rs1 = x5 (rd is ignored for SET)
+    $display("Test Case 2: CSR_OPS_SET");
+    $display("csr_rd_req = %b, csr_wr_req = %b, RegWrite = %b (Expected: csr_rd_req = 1, csr_wr_req = 1, RegWrite = 1)", csr_rd_req, csr_wr_req, RegWrite);
+
+    // Test Case 3: CSR_OPS_CLEAR, no valid rs1
+    #10;
+    csr_ops = 2'b11;  // CSR_OPS_CLEAR
+    instruction = 32'h00008093;  // rs1 = x0 (no write)
+    $display("Test Case 3: CSR_OPS_CLEAR");
+    $display("csr_rd_req = %b, csr_wr_req = %b, RegWrite = %b (Expected: csr_rd_req = 1, csr_wr_req = 0, RegWrite = 1)", csr_rd_req, csr_wr_req, RegWrite);
+
+    // Test Case 4: CSR_OPS_NONE
+    #10;
+    csr_ops = 2'b00;  // CSR_OPS_NONE
+    RegWrite_id2exe = 1'b1;  // RegWrite passes through
+    $display("Test Case 4: CSR_OPS_NONE");
+    $display("csr_rd_req = %b, csr_wr_req = %b, RegWrite = %b (Expected: csr_rd_req = 0, csr_wr_req = 0, RegWrite = 1)", csr_rd_req, csr_wr_req, RegWrite);
+
+    // Finish Simulation
+    #10;
+    $display("Simulation completed.");
+    $finish;
+  end
+
+endmodule
