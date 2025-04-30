@@ -1,5 +1,5 @@
 
-module m_hazard_detection_unit_v2(
+module m_hazard_detection_unit_v3(
 	input logic clk,
 	input logic rst,
 	input [4:0] ID_EX_rd, 

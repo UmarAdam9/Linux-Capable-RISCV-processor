@@ -93,7 +93,7 @@ output logic  			en_ld_st_vaddr,
 output logic  			dcache_flush,
 output logic	 		sum,
 output logic[1:0]  	priv_mode_to_lsu, //length??
-output logic 			lsu_flush,		//useless?
+output logic 			lsu_flush,		//useless? yup its being handled in the hazard unit
 
 
 

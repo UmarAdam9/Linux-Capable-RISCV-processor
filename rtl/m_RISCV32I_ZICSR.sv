@@ -92,9 +92,23 @@ module m_RISCV32I_ZICSR    import risc_v_core_pkg::* ,tracer_pkg::*;
 		wire			exe_pc_req_fb2if;		//	-Adam
 		wire			csr_pc_reqid_fb2if;	//	-Adam
 		wire			wfi_req_fb2if;			// -Adam
+		wire			lsu_req_lsu2hzd;		// -Adam
+		wire			lsu_ack_lsu2hzd;		// -Adam
+		wire 			irq_flush_lsu;			// -Adam
+		
 		wire        PCWrite; 
       wire        IF_DWrite; 
+		wire			ID_EXEwrite;			//-Adam
+		wire			EXE_MEMwrite;			//-Adam
+		
       wire        hazard_out;
+		wire			flush_IF_ID;			//-Adam
+		wire			flush_ID_EXE;			//-Adam
+		wire			flush_EXE_MEM;			//-Adam
+		wire			flush_MEM_WB;			//-Adam
+		wire			PC_changed;				//-Adam
+		wire			lsu_flush_hzd2lsu;	//-Adam
+		
     //Register									// why??
       reg         hazard_out_reg; 
       reg         IF_Dwrite_reg;
@@ -246,7 +260,7 @@ module m_RISCV32I_ZICSR    import risc_v_core_pkg::* ,tracer_pkg::*;
     
   //Writeback stage 
     //control signals Register block
-      wire [23:0] cntrl_out_MEM_WB;
+      wire [33:0] cntrl_out_MEM_WB;
     //data memory Register block
       wire [31:0] dataout_MEM_WB;
     //ALU Result Register block
@@ -288,11 +302,11 @@ module m_RISCV32I_ZICSR    import risc_v_core_pkg::* ,tracer_pkg::*;
     logic [1:0]   amo_ALUOp     ;
     logic         amo_MemRead   ;
     logic         amo_MemWrite  ;
-    logic         amo_regfile_rd_addr_sel   ;
+    logic         amo_regfile_rd_addr_sel;
     logic         amo_RegWrite  ;
     logic         amo_MemtoReg  ;
-    logic         amo_dmem_wr_data_sel      ;
-    logic [1:0]   amo_is_sc_reg_wr         ;
+    logic         amo_dmem_wr_data_sel;
+    logic [1:0]   amo_is_sc_reg_wr;
     logic         is_atomic;
     logic [23:0]  cntrl_out_normal;
     logic         is_atomic_reg;
@@ -387,7 +401,6 @@ module m_RISCV32I_ZICSR    import risc_v_core_pkg::* ,tracer_pkg::*;
 	//i_kill and i_page_fault assignments??		EDIT: i_page_fault DONE EDIT: i_page_fault DONE
 	
 	//	Adam : how to assign i_req???
-	
 	// Adam : how to add read_enable functionality??? {assign mem_ntv_interface_imem.r_en     = PCWrite & ~pc_disable & !atomic_stall ; } do we even need it?
 	
 
@@ -412,7 +425,7 @@ module m_RISCV32I_ZICSR    import risc_v_core_pkg::* ,tracer_pkg::*;
       .instruction_out(inst_out_comp  ),
       .pc_disable     (pc_disable     ),
       .compressed     (compressed     ),
-      .PCSrc          (PCSrc          ),
+      .PCSrc          (PC_changed          ),	//changed -Adam
       .PC_jump_addr   (jump_addr      ),
       .comp_state     (comp_state     )
 	  );
@@ -424,7 +437,7 @@ module m_RISCV32I_ZICSR    import risc_v_core_pkg::* ,tracer_pkg::*;
       .enable       (!atomic_stall),      //!amo_stall
       .instruction  (i_paddr     ), 			//from instruction mem
       .PCWrite      (PCWrite          ),
-      .PCSrc        (PCSrc            ),
+      .PCSrc        (PC_changed            ),
       .PC_jump_addr (jump_addr        ),
       .p_state      (comp_state       ),        
       .dummy_pc     (dummypc          )
@@ -460,7 +473,7 @@ module m_RISCV32I_ZICSR    import risc_v_core_pkg::* ,tracer_pkg::*;
     begin
       if (!rst_in)
            PCSrc_reg <= 1'b0;
-      else PCSrc_reg <= PCSrc;
+      else PCSrc_reg <= PC_changed;
     end
 	 
 	 
@@ -497,7 +510,7 @@ module m_RISCV32I_ZICSR    import risc_v_core_pkg::* ,tracer_pkg::*;
 	register_en #(1)	IF_ID_exc_req(					//Umar Adam:change the register param to 1 bit
 		.clk   (clk_in            ), 
       .reset (rst_in            ),
-      .flush (PCSrc | PCSrc_reg ), //Umar Adam: how are they using these flushes?? [change these!!]
+      .flush (flush_IF_ID|PC_changed | PCSrc_reg ), //Umar Adam: how are they using these flushes?? [change these!!]
       .en    (IF_Dwrite_reg     ), 
       .d     (exc_req_out        ),
       .q     (exc_req_out_IF_ID  )
@@ -507,7 +520,7 @@ module m_RISCV32I_ZICSR    import risc_v_core_pkg::* ,tracer_pkg::*;
 		register_en #(4)	IF_ID_exc_code(					//Umar Adam:change the register param to 4 bits
 		.clk   (clk_in            ), 
       .reset (rst_in            ),
-      .flush (PCSrc | PCSrc_reg ), //Umar Adam:  [change these!!]
+      .flush (flush_IF_ID| PC_changed | PCSrc_reg ), //Umar Adam:  [change these!!]
       .en    (IF_Dwrite_reg     ), 
       .d     (exc_code_out        ),
       .q     (exc_code_out_IF_ID  )
@@ -529,22 +542,62 @@ module m_RISCV32I_ZICSR    import risc_v_core_pkg::* ,tracer_pkg::*;
   
   
   //Updated hazard detection (stall of one cycle if hazard detected)  -Umar Adam
-  m_hazard_detection_unit hazard_unit2(	
+//  m_hazard_detection_unit hazard_unit2(	
+//	.ID_EX_rd	(inst_out_IF_ID[11:7]), 
+//	.IF_ID_rs1	(inst_out_comp[19:15]), 
+//	.IF_ID_rs2	(inst_out_comp[24:20]),
+//	.ID_EX_memread(MemRead | (amo_MemRead && lr_w_inst_reg)),
+//	.opcode (inst_out_comp[6:0]  ),
+//	.exe_pc_req_i(PCSrc),	//PCsrc signal
+//	.csr_pc_req_i(csr_pc_req_csr2hzd),
+//	.wfi_req_i(irq_flush_mem2wb_csr2hzd),
+//	//  input       irq_flush_mem2wb,
+//	.exe_pc_req_o(exe_pc_req_fb2if),
+//	.csr_pc_req_o(csr_pc_reqid_fb2if),
+//	.wfi_req_o(wfi_req_fb2if),
+//	.PCWrite(PCWrite), 	 //Blocks the pc read 
+//	.IF_Dwrite(IF_Dwrite),   //blocks the IF/ID pipeline
+//	.hazard_out(hazard_out)	 //sends all zeroes as control signals to the execute stage (NOOP?)
+//  );
+  
+  
+    m_hazard_detection_unit_v3 hazard_unit(	
+	 .clk(clk_in),
+	 .rst(rst_in),
 	.ID_EX_rd	(inst_out_IF_ID[11:7]), 
 	.IF_ID_rs1	(inst_out_comp[19:15]), 
 	.IF_ID_rs2	(inst_out_comp[24:20]),
 	.ID_EX_memread(MemRead | (amo_MemRead && lr_w_inst_reg)),
 	.opcode (inst_out_comp[6:0]  ),
+	
+	
 	.exe_pc_req_i(PCSrc),	//PCsrc signal
 	.csr_pc_req_i(csr_pc_req_csr2hzd),
 	.wfi_req_i(irq_flush_mem2wb_csr2hzd),
-	//  input       irq_flush_mem2wb,
+	.irq_flush_i(irq_flush_lsu),
+	
+	.lsu_req(lsu_req_lsu2hzd),
+	.lsu_ack(lsu_ack_lsu2hzd),
+	
 	.exe_pc_req_o(exe_pc_req_fb2if),
 	.csr_pc_req_o(csr_pc_reqid_fb2if),
 	.wfi_req_o(wfi_req_fb2if),
+	
+	
 	.PCWrite(PCWrite), 	 //Blocks the pc read 
 	.IF_Dwrite(IF_Dwrite),   //blocks the IF/ID pipeline
-	.hazard_out(hazard_out)	 //sends all zeroes as control signals to the execute stage (NOOP?)
+	.ID_EXEwrite(ID_EXEwrite),
+	.EXE_MEMwrite(EXE_MEMwrite),
+	
+	.hazard_out(hazard_out), //sends all zeroes as control signals to the execute stage (NOOP?)
+	.flush_IF_ID(flush_IF_ID),
+	.flush_ID_EXE(flush_ID_EXE),
+	.flush_EXE_MEM(flush_EXE_MEM),
+	.flush_MEM_WB(flush_MEM_WB),
+	
+	.PC_changed(PC_changed),
+	.lsu_flush_o(lsu_flush_hzd2lsu)
+
   );
   
   
@@ -568,7 +621,7 @@ module m_RISCV32I_ZICSR    import risc_v_core_pkg::* ,tracer_pkg::*;
     register_en IF_ID_pcout(
       .clk   (clk_in            ), 
       .reset (rst_in            ),
-      .flush (PCSrc | PCSrc_reg ), //generate flush for two cycle  [Umar Adam: Figure out why 2 flushes!]
+      .flush ( flush_IF_ID | PC_changed | PCSrc_reg ), //generate flush for two cycle  [Umar Adam: Figure out why 2 flushes!]
       .en    (IF_Dwrite_reg     ), 
       .d     (PC_out_reg        ),
       .q     (PC_out_IF_ID      )
@@ -578,7 +631,7 @@ module m_RISCV32I_ZICSR    import risc_v_core_pkg::* ,tracer_pkg::*;
     register_en IF_ID_instout(
       .clk   (clk_in            ), 
       .reset (rst_in            ), 
-      .flush (PCSrc | PCSrc_reg ), //generate flush for two cycle	[Umar Adam: Figure out why 2 flushes!]
+      .flush ( flush_IF_ID | PC_changed | PCSrc_reg ), //generate flush for two cycle	[Umar Adam: Figure out why 2 flushes!]
       .en    (IF_Dwrite_reg  & atomic_stall_2  ),  
       .d     (inst_out_comp     ),
       .q     (inst_out_IF_ID    )
@@ -689,11 +742,12 @@ module m_RISCV32I_ZICSR    import risc_v_core_pkg::* ,tracer_pkg::*;
     );
 
 
-  //mux to select control signals (18'b0 if there is a stall or flush)
+  //mux to select control signals (18'b0 if there is a stall or flush) EDIT: 18'b0 for ONLY ld_use stalls , all others will not do this
+  
     mux #(34) control_signals(						//Umar Adam : change the mux param to 34 bits and add the zicsr signals [edit:DONE]
       .a({csr_ops[1:0],sys_ops[2:0],exc_req_out_cntrl,exc_code_out_cntrl[3:0],dmem_addr_sel,amo_regfile_rd_addr_sel,amo_stall,amo_is_sc_reg_wr[1:0],amo_dmem_wr_data_sel,ALUOp[1:0], ALUSrcA[1:0], ALUSrcB[1:0], jalr, Branch[5:0], jal, MemRead, MemWrite, RegWrite, MemtoReg }), 
       .b(34'd0), 
-      .s(hazard_out_reg | PCSrc), 
+      .s(hazard_out_reg ), 	//Umar Adam : why hazard_out_reg? what is this synchronization?????????? Edit: it also has PCSrc which i removed
       .c(cntrl_out_normal)
   );
 
@@ -747,55 +801,61 @@ module m_RISCV32I_ZICSR    import risc_v_core_pkg::* ,tracer_pkg::*;
 
 
   //Registering PC For Execute Stage
-    register ID_EX_pcout(
+    register_en ID_EX_pcout(
       .clk   (clk_in                ), 
       .reset (rst_in                ),
-      .flush (PCSrc |hazard_out_reg ),   //Umar Adam: why is hazard_out_reg being used??
+      .flush (flush_ID_EXE ),   //Umar Adam: why is hazard_out_reg being used??
+		.en    (ID_EXEwrite),
       .d     (PC_out_IF_ID          ), 
       .q     (PC_out_ID_EX          )
     );
 
   //Registering Instruction For Execute Stage
-    register ID_EX_instout(
+    register_en ID_EX_instout(
       .clk   (clk_in                ), 
       .reset (rst_in                ), 
-      .flush (PCSrc |hazard_out_reg ),        //Umar Adam: why is hazard_out_reg being used?? 
+      .flush (flush_ID_EXE ),        //Umar Adam: why is hazard_out_reg being used?? 
+		.en    (ID_EXEwrite),
       .d     (inst_out_IF_ID        ),   
       .q     (inst_out_ID_EX        )
     );
 
   //Registering Immediate For Execute Stage
-    register ID_EX_imm(
+    register_en ID_EX_imm(
       .clk   (clk_in                ), 
       .reset (rst_in                ), 
-      .flush (PCSrc                 ), 
+      .flush (flush_ID_EXE          ), 
+		.en    (ID_EXEwrite),
       .d     (inst_out_imm          ), 
       .q     (imm_out_ID_EX         )
     );
 
   //Registering Controls Signals For Execute Stage		[Umar Adam: changed the length to 34]
-    register #(34) ID_EX_controls(
+    register_en #(34) ID_EX_controls(
       .clk   (clk_in                ), 
       .reset (rst_in                ), 
-      .flush (PCSrc                 ), 
+      .flush (flush_ID_EXE                 ), 
+		.en    (ID_EXEwrite),
       .d     (cntrl_out             ),
       .q     (cntrl_out_ID_EX       )
     );
 
   //Registering Rs1_out For Execute Stage
-    register ID_EX_rs1out(
+    register_en ID_EX_rs1out(
       .clk   (clk_in                ), 
       .reset (rst_in                ), 
-      .flush (PCSrc                 ), 
+      .flush (flush_ID_EXE                 ), 
+		.en    (ID_EXEwrite),
       .d     (rs1_out               ), 
       .q     (rs1_out_ID_EX         )
     );
 
   //Registering Rs2_out For Execute Stage
-    register ID_EX_rs2out(
+    register_en ID_EX_rs2out(
       .clk   (clk_in                ), 
       .reset (rst_in                ), 
-      .flush (PCSrc                 ), 
+      .flush (flush_ID_EXE                 ), 
+		.en    (ID_EXEwrite),
       .d     (rs2_out               ), 
       .q     (rs2_out_ID_EX         )
     );
@@ -1013,43 +1073,53 @@ module m_RISCV32I_ZICSR    import risc_v_core_pkg::* ,tracer_pkg::*;
 
 
   //Registering Controls Signals For Memory Stage  [Umar Adam:why is the register 23 and not 24? also changed it to 34]
-    register #(34) EX_MEM_controls(
+    register_en #(34) EX_MEM_controls(
       .clk   (clk_in               ), 
       .reset (rst_in               ), 
+		.en(EXE_MEMwrite),
+		.flush(flush_EXE_MEM),
       .d     ({cntrl_out_ID_EX[33:2],reg_write_exe ,cntrl_out_ID_EX[0]} ),
       .q     (cntrl_out_Ex_MEM     )
     );
 	 
 
   //Registering ALU Result For Memory Stage
-    register EX_MEM_ALU(
+    register_en EX_MEM_ALU(
       .clk   (clk_in               ), 
       .reset (rst_in               ), 
+				.en(EXE_MEMwrite),
+		.flush(flush_EXE_MEM),
       .d     (alu_result           ), 
       .q     (alu_result_EX_MEM    )
     );
 
   //Registering Instruction For Memory Stage
-    register EX_MEM_instout(
+    register_en EX_MEM_instout(
       .clk   (clk_in               ), 
       .reset (rst_in               ), 
+				.en(EXE_MEMwrite),
+		.flush(flush_EXE_MEM),
       .d     (inst_out_ID_EX       ), 
       .q     (inst_out_EX_MEM      )
     );
 	 
 	 
 	 //register csr_rd_req and wr_req for csr module    -Umar Adam 
-	 register #(1) EX_MEM_csr_rd_req(
+	 register_en #(1) EX_MEM_csr_rd_req(
       .clk   (clk_in               ), 
       .reset (rst_in               ), 
+				.en(EXE_MEMwrite),
+		.flush(flush_EXE_MEM),
       .d     (csr_rd_req      ), 
       .q     (csr_rd_req_EX_MEM      )
     );
 	 
 
-	 register #(1) EX_MEM_csr_wr_req(
+	 register_en #(1) EX_MEM_csr_wr_req(
       .clk   (clk_in               ), 
       .reset (rst_in               ), 
+				.en(EXE_MEMwrite),
+		.flush(flush_EXE_MEM),
       .d     (csr_wr_req      ), 
       .q     (csr_wr_req_EX_MEM      )
 		
@@ -1064,9 +1134,11 @@ module m_RISCV32I_ZICSR    import risc_v_core_pkg::* ,tracer_pkg::*;
 	 
 	 
 	 //register PC						
-	  register EX_MEM_pcout(
+	  register_en EX_MEM_pcout(
       .clk   (clk_in                ), 
-      .reset (rst_in                ),											
+      .reset (rst_in                ),		
+		.en(EXE_MEMwrite),
+		.flush(flush_EXE_MEM),		
       .d     (PC_out_ID_EX          ), 
       .q     (PC_out_EX_MEM)
     );
@@ -1102,17 +1174,17 @@ module m_RISCV32I_ZICSR    import risc_v_core_pkg::* ,tracer_pkg::*;
 		.d_paddr(d_paddr_in),
 		.d_hit(d_hit_in),
 		
-		.hzd2lsu_lsu_flush('0),   //from hazard unit
+		.hzd2lsu_lsu_flush(lsu_flush_hzd2lsu),   //from hazard unit
 		
 		.lsu2csr_dbus_addr(dbus_addr_lsu2csr),
 		.lsu2csr_ld_page_fault(ld_page_fault_lsu2csr),
 		.lsu2csr_st_page_fault(st_page_fault_lsu2csr),
 		.lsu2csr_dcache_flush_or_ack(dcache_flush_or_ack_lsu2csr),
 		
-		.lsu_req(),					//To hazard unit  (These stalls are yet to be implemented btw)
-		.lsu_ack(),
+		.lsu_req(lsu_req_lsu2hzd),					//To hazard unit  (These stalls are yet to be implemented btw)
+		.lsu_ack(lsu_ack_lsu2hzd),
 		
-		.r_data(),				//To WB stage
+		.r_data(data_mem_out),				//To WB stage
 		
 		.lsu2mmu_satp_ppn(satp_ppn_o),	//To mmu outside the core
 		.lsu2mmu_en_vaddr(en_vaddr_o),
@@ -1154,7 +1226,7 @@ module m_RISCV32I_ZICSR    import risc_v_core_pkg::* ,tracer_pkg::*;
 		.csr_ops_in(cntrl_out_Ex_MEM[33:32]),			//check the width
 		.sys_ops_in(cntrl_out_Ex_MEM[31:29]),			//check the width
 		.exc_req_in(cntrl_out_Ex_MEM[28]),
-		.irq_req_in('0),
+		.irq_req_in('0),											//no use?
 		.csr_rd_req_in(csr_rd_req_EX_MEM),
 		.csr_wr_req_in(csr_wr_req_EX_MEM),
 		.fence_i_req_in('0),    					//not implemented yet
@@ -1164,10 +1236,10 @@ module m_RISCV32I_ZICSR    import risc_v_core_pkg::* ,tracer_pkg::*;
 		.instr_in(inst_out_EX_MEM),
 		.csr_wdata_in(alu_result_EX_MEM),     //comes from the ALU
 		.exc_code_in(cntrl_out_Ex_MEM[27:24]),		//check the length
-		.instr_flushed_in(),
-
+		.instr_flushed_in(),							//used to freeze the current pc but thats not implemented
+		
 		//HZD <---> CSR unit 
-		.pipe_stall_in('0),			//comes from lsu_div_stall which is yet to be implemented
+		.pipe_stall_in('0),			//used to freeze the current pc but thats not implemented
 
 		//CLINT <---> CSR 
 		.timer_val_low_in('0), 
@@ -1242,19 +1314,47 @@ module m_RISCV32I_ZICSR    import risc_v_core_pkg::* ,tracer_pkg::*;
 //                                         Writeback Stage
 //========================================================================================================
 
-  //Registering Controls Signals For Writeback Stage
-    register #(23) MEM_WB_controls(
+
+	wire[31:0] csr_rdata_MEM_WB;
+	wire csr_rd_req_MEM_WB;
+	wire[31:0] regfile_write_data2;
+	
+	 //register csr_rd_req for WB    -Umar Adam 
+	 register #(1)  MEM_WB_csr_rd_req(
       .clk   (clk_in               ), 
       .reset (rst_in               ), 
+		.flush (flush_MEM_WB),
+      .d     (csr_rd_req_EX_MEM       ), 
+      .q     (csr_rd_req_MEM_WB      )
+    );
+
+  //Registering Controls Signals For Writeback Stage -Umar Adam :changed the lengths
+    register #(34) MEM_WB_controls(
+      .clk   (clk_in               ), 
+      .reset (rst_in               ), 
+		.flush(flush_MEM_WB),
       .d     (cntrl_out_Ex_MEM),
       .q     (cntrl_out_MEM_WB     )
     );
+	 
+	 
+	   //Registering the csr write data For Writeback Stage -Umar Adam 
+    register #(32) csr_rdata_reg(
+      .clk   (clk_in               ), 
+      .reset (rst_in               ), 
+		.flush(flush_MEM_WB),
+      .d     (rdata_csr2wb),
+      .q     (csr_rdata_MEM_WB     )
+    );
+	 
+	 
 
   //Registering Datamemory Out For Writeback Stage
     register MEM_WB_datamem(
       .clk   (clk_in               ), 
       .reset (rst_in               ), 
-      .d     (data_mem_out         ), 	//take care of data_mem_out -Adam
+		.flush (flush_MEM_WB         ),
+      .d     (data_mem_out         ), 	//take care of data_mem_out -Adam EDIT:DONE..?
       .q     (dataout_MEM_WB       )
     );
   
@@ -1262,6 +1362,7 @@ module m_RISCV32I_ZICSR    import risc_v_core_pkg::* ,tracer_pkg::*;
     register MEM_WB_ALU(
       .clk   (clk_in               ), 
       .reset (rst_in               ), 
+		.flush (flush_MEM_WB			  ),
       .d     (alu_result_EX_MEM    ), 
       .q     (alu_result_MEM_WB    )
     );
@@ -1270,6 +1371,7 @@ module m_RISCV32I_ZICSR    import risc_v_core_pkg::* ,tracer_pkg::*;
     register MEM_WB_instout(
       .clk   (clk_in               ), 
       .reset (rst_in               ), 
+		.flush(flush_MEM_WB),
       .d     (inst_out_EX_MEM      ), 
       .q     (inst_out_MEM_WB      )
     );
@@ -1289,6 +1391,14 @@ module m_RISCV32I_ZICSR    import risc_v_core_pkg::* ,tracer_pkg::*;
       .s     (cntrl_out_MEM_WB[0]  ), //memtoreg
       .c     (regfile_write_data   )
     );
+	 
+	 //selects between csr value and alu_result or lsu result
+	   mux write_back2(
+      .a     (regfile_write_data    ),  
+      .b     (csr_rdata_MEM_WB      ),  
+      .s     (csr_rd_req_MEM_WB ), // csr read req
+      .c     (regfile_write_data2   )
+    );
 
   //registering reserved signal
     always_ff @(posedge clk_in or negedge rst_in) begin
@@ -1304,7 +1414,7 @@ module m_RISCV32I_ZICSR    import risc_v_core_pkg::* ,tracer_pkg::*;
 
     //final selection for data to be written in register file 
     mux_4x1 final_write_back(
-      .a(regfile_write_data),       //in case of no sc.w instruction
+      .a(regfile_write_data2),       //in case of no sc.w instruction
       .b((reserved_reg2) ? 32'd0: 32'd1),                    //in case of sc.w success
       .c(32'd1),                    //in case of sc.w failure
       .d(rs2_out_MEM_WB),
