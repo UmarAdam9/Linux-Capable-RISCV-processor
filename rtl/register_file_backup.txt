@@ -17,11 +17,7 @@ module register_file
 	input [(ADDR_WIDTH-1):0]  rd,
 	
 	output [(DATA_WIDTH-1):0] read_data1, 
-	output [(DATA_WIDTH-1):0] read_data2,
-	
-	//debugging									-Adam
-	output  [32:0]		  reg_x10,
-	output  [32:0]		  reg_x11
+	output [(DATA_WIDTH-1):0] read_data2
 );
 
 //=======================================================
@@ -41,20 +37,14 @@ module register_file
 	
 
   // Write
-  always @ (posedge clk, posedge rst)
+  always @ (posedge clk, negedge rst)
 	begin
-		if(rst) begin
+		if(~rst) begin
 		  for (i=0; i< 2**ADDR_WIDTH; i=i+1)
 		    ram[i] <= 32'd0;
 		end
 		else if (we & rd!=0)
 		  ram[rd] <= write_data;
 	end
-	
-	//debugging
-	
-	assign reg_x10 = ram[10];
-	assign reg_x11 = ram[11];
-	
 
 endmodule

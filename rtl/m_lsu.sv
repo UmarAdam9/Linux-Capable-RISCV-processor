@@ -13,7 +13,7 @@ input logic[3:0] byte_enable_in,
 
 
 //from csr module (check lengths!!)
-input logic  satp_ppn,
+input logic [21:0] satp_ppn,
 input logic	 en_vaddr,
 input logic	 mxr,
 input logic  tlb_flush,

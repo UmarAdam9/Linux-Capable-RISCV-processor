@@ -310,7 +310,7 @@ module m_control_unit_ZICSR(
 				ALUSrcA   = 2'b00; //reg1
 				ALUSrcB   = 2'b11; //zero
 				RegWrite  = 1'b1;
-				ALUOp     = 2'b10;
+				ALUOp     = 2'b00;
 				csr_ops	  = csr_ops_write;   
 				MemtoReg  = 2'b10; //select csr output at the WB mux 				
             end
@@ -318,7 +318,7 @@ module m_control_unit_ZICSR(
 				ALUSrcA   = 2'b00; //reg1
 				ALUSrcB   = 2'b11; //zero 
 				RegWrite  = 1'b1;
-				ALUOp     = 2'b10;
+				ALUOp     = 2'b00;
 				csr_ops	  = csr_ops_set;   
 				MemtoReg  = 2'b10; //select csr output at the WB mux (to be extended)
                        
@@ -327,7 +327,7 @@ module m_control_unit_ZICSR(
 				ALUSrcA   = 2'b00; //reg1
 				ALUSrcB   = 2'b11; //zero 
 				RegWrite  = 1'b1;
-				ALUOp     = 2'b10;
+				ALUOp     = 2'b00;
 				csr_ops	  = csr_ops_clear;   
 				MemtoReg  = 2'b10; //select csr output at the WB mux (to be extended)
                         
@@ -336,7 +336,7 @@ module m_control_unit_ZICSR(
 				ALUSrcA   = 2'b10; //zero
 				ALUSrcB   = 2'b01; //immediate
 				RegWrite  = 1'b1;
-				ALUOp     = 2'b10;
+				ALUOp     = 2'b00;
 				csr_ops	  = csr_ops_write;   
 				MemtoReg  = 2'b10; //select csr output at the WB mux (to be extended)
                         
@@ -345,7 +345,7 @@ module m_control_unit_ZICSR(
 				ALUSrcA   = 2'b10; //zero
 				ALUSrcB   = 2'b01; //immediate
 				RegWrite  = 1'b1;
-				ALUOp     = 2'b10;
+				ALUOp     = 2'b00;
 				csr_ops	  = csr_ops_set;   
 				MemtoReg  = 2'b10; //select csr output at the WB mux (to be extended)
                         
@@ -354,7 +354,7 @@ module m_control_unit_ZICSR(
 				ALUSrcA   = 2'b10; //zero
 				ALUSrcB   = 2'b01; //immediate
 				RegWrite  = 1'b1;
-				ALUOp     = 2'b10;
+				ALUOp     = 2'b00;
 				csr_ops	  = csr_ops_clear;   
 				MemtoReg  = 2'b10; //select csr output at the WB mux (to be extended)
                        

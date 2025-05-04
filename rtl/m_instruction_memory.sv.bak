@@ -1,0 +1,30 @@
+module m_instruction_memory (
+    input logic clk,                // Clock signal
+    input logic reset,              // Reset signal
+    input logic [31:0] addr,        // 32-bit address input
+    output logic [31:0] instruction // 32-bit instruction output
+);
+
+    // Declare a memory array with a size of 1024 (for example)
+    // Each entry in memory holds 32-bit instructions
+    logic [31:0] mem [0:1023]; 
+
+    // Initialization block for the memory (optional, for simulation purposes)
+    initial begin
+        // Load the instructions into memory
+        mem[0] = 32'h80000037;  // lui x10, 0x80000
+        mem[4] = 32'h40000073;  // csrw mtvec, x10
+        mem[8] = 32'h12345037;  // lui x11, 0x12345
+        mem[12] = 32'h00130313; // addi x11, x11, 0x678
+        mem[16] = 32'h400001b3;  // csrw mscratch, x11
+    end
+
+    // Always block to handle reading from memory
+    always_ff @(posedge clk or negedge reset) begin
+        if (!reset)
+            instruction <= 32'b0;  // Reset the instruction output
+        else
+            instruction <= mem[addr >> 2]; // Fetch instruction based on address (byte to word alignment)
+    end
+
+endmodule

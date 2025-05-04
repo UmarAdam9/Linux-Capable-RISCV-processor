@@ -1,0 +1,52 @@
+  import risc_v_core_pkg::*;
+module tb_m_soc;
+    // Declare testbench signals
+    logic clk_tb;
+    logic rst_tb;
+  
+    // Debugging Signals
+    logic [31:0] reg_x10_tb;
+    logic [31:0] reg_x11_tb;
+    logic [31:0] reg_mcause_tb;
+    logic [31:0] reg_mepc_tb;
+    logic [31:0] reg_mtval_tb;
+  
+    // Instantiate the m_soc module
+    m_soc uut (
+        .clk_in(clk_tb),
+        .rst_in(rst_tb),
+        .reg_x10(reg_x10_tb),
+        .reg_x11(reg_x11_tb),
+        .reg_mcause(reg_mcause_tb),
+        .reg_mepc(reg_mepc_tb),
+        .reg_mtval(reg_mtval_tb)
+    );
+
+    // Clock generation
+    always begin
+        #5 clk_tb = ~clk_tb;  
+    end
+
+    // Test stimulus
+    initial begin
+        // Initialize signals
+        clk_tb = 0;
+        rst_tb = 0;
+      
+        // Apply reset
+        rst_tb = 1;
+        #10 rst_tb = 0;  // Reset for 10 time units
+      
+        // Run for 15 clock cycles
+        #600;  // After 60 clock cycles, we stop the simulation
+        
+        // End the simulation
+        $finish;
+    end
+
+    // Monitor the outputs for debugging
+    initial begin
+        $monitor("Time: %0t | reg_x10: %h | reg_x11: %h | reg_mcause: %h | reg_mepc: %h | reg_mtval: %h", 
+                 $time, reg_x10_tb, reg_x11_tb, reg_mcause_tb, reg_mepc_tb, reg_mtval_tb);
+    end
+endmodule

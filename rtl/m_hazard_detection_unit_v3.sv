@@ -13,10 +13,11 @@ module m_hazard_detection_unit_v3(
 	input		csr_pc_req_i,
 	input 	wfi_req_i,
    input    irq_flush_i,
+	input logic csr_rd_req_i,
 	
 	//from lsu
 	input logic lsu_req,
-	inout logic lsu_ack,
+	input logic lsu_ack,
 	
 
 	output		exe_pc_req_o,
@@ -52,7 +53,7 @@ module m_hazard_detection_unit_v3(
 //=======================================================
 
 	assign lsu_flush = csr_pc_req_i | wfi_req_i; //has to be sent to the lsu for pipeline flushing
-	assign ld_use_hazard = ( ID_EX_memread && ( ID_EX_rd==IF_ID_rs1 || (ID_EX_rd==IF_ID_rs2 && opcode!=Load)) ) & ~(lsu_req); //OR'ed with csr_read, csr read cannot have ld_use hzd violation?
+	assign ld_use_hazard = ( ID_EX_memread && ( ID_EX_rd==IF_ID_rs1 || (ID_EX_rd==IF_ID_rs2 && opcode!=Load)) ) & ~(lsu_req  ); //OR'ed with csr_read, csr read cannot have ld_use hzd violation?
 	assign serve_exe_pc_req = exe_pc_req_i & ~(ld_use_hazard | lsu_stall_next); //only serve execute pc req on these conditions
 
 	

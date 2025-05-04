@@ -33,9 +33,6 @@ module Imm_Gen
      
       //lui
       7'b0110111 : Imm_Out = {Inst_In[31:12], 12'b0};
-		
-		//system
-		7'b1110011 : Imm_Out = {27'b0,Inst_In[19:15]};
      
       //any other
       default    : Imm_Out = {{20{Inst_In[31]}},Inst_In[31:20]};

@@ -14,9 +14,8 @@ module forwarding_unit(
   input            sc_w_inst_EX_MEM,
   input            sc_w_inst_MEM_WB,
   input            reserved,
-  input		 [6:0]instruction_in,
-  output reg [2:0] forward_A, 
-  output reg [2:0] forward_B
+  output reg [1:0] forward_A, 
+  output reg [1:0] forward_B
 );
 
 //=======================================================
@@ -27,40 +26,22 @@ module forwarding_unit(
 	begin
 		// MUX A
     if(sc_w_inst_EX_MEM && EX_MEM_rd!=5'b0 && EX_MEM_rd==rs1)
-      forward_A = 3'b011;      
-		
-		else if(EX_MEM_regwrite==1'b1 && EX_MEM_rd!=5'b0 && EX_MEM_rd==rs1 && !sc_w_inst_EX_MEM) 
-			begin     //checking EX Hazard
-				if(instruction_in == 7'b1110011)
-					forward_A = 3'b100;
-				else
-					forward_A = 3'b010;
-				
-			end
-			
-			
+      forward_A = 2'b11;      
+		else if(EX_MEM_regwrite==1'b1 && EX_MEM_rd!=5'b0 && EX_MEM_rd==rs1 && !sc_w_inst_EX_MEM)      //checking EX Hazard
+			forward_A = 2'b10;
 		else if(MEM_WB_regwrite==1'b1 && MEM_WB_rd!=5'b0 && MEM_WB_rd==rs1 ) //checking MEM Hazard
-			forward_A = 3'b001;
-			
-		else 	forward_A = 3'b000;									                          //no fwding hazard
+			forward_A = 2'b01;
+		else 	forward_A = 2'b00;									                          //no fwding hazard
 
 
 		// MUX B
     if(sc_w_inst_EX_MEM && EX_MEM_rd!=5'b0 && EX_MEM_rd==rs2)
-      forward_A = 3'b011;
-		
-    else if(EX_MEM_regwrite==1'b1 && EX_MEM_rd!=5'b0 && EX_MEM_rd==rs2 && !is_atomic && !sc_w_inst_EX_MEM) begin     //checking EX Hazard
-	 
-			if(instruction_in[6:0] == 6'b1110011)
-				forward_A = 3'b100;
-			else
-				forward_B = 3'b010;
-			end
-			
+      forward_A = 2'b11;
+    else if(EX_MEM_regwrite==1'b1 && EX_MEM_rd!=5'b0 && EX_MEM_rd==rs2 && !is_atomic && !sc_w_inst_EX_MEM)      //checking EX Hazard
+			forward_B = 2'b10;
 		else if(MEM_WB_regwrite==1'b1 && MEM_WB_rd!=5'b0 && MEM_WB_rd==rs2 ) //checking MEM Hazard
-			forward_B = 3'b001;
-			
-		else  forward_B = 3'b000;								                            //no fwding hazard
+			forward_B = 2'b01;
+		else  forward_B = 2'b00;								                            //no fwding hazard
 
 	end
 

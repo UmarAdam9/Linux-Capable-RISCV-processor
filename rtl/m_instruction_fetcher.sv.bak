@@ -1,0 +1,38 @@
+module m_instruction_fetcher(
+
+//from pc
+input logic[31:0] pc_addr_in,
+//from hzd unit
+input logic 		if_stall_in,
+//from mmu
+input logic[31:0]	i_paddr,
+//TO mmu
+output logic		i_req
+
+
+
+);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+endmodule

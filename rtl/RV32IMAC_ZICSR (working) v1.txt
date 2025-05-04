@@ -402,7 +402,7 @@ module m_RISCV32I_ZICSR    import risc_v_core_pkg::* ,tracer_pkg::*;
 
 	//Assigning values to the MMU interface	-Adam
 	assign i_vaddr = PC_out;
-// assign i_req	= 1b'1;		ireq = !stall & !flush
+// assign i_req	= 1b'1;
 	assign i_kill = csr_pc_reqid_fb2if | exe_pc_req_fb2if;
 	
 	

@@ -1,0 +1,68 @@
+module m_soc(
+    input                clk_in,            // Clock input
+    input                rst_in             // Reset input
+  
+    // Debugging Signals
+    output logic[31:0]  reg_x10,           // Register x10 output
+    output logic[31:0]  reg_x11,           // Register x11 output
+    output logic[31:0]  reg_mcause,        // mcause output
+    output logic[31:0]  reg_mepc,          // mepc output
+    output logic[31:0]  reg_mtval          // mtval output
+);
+
+    // Instruction Memory Instance
+    logic [31:0] instruction;
+
+    // Instantiate the instruction memory module
+    instruction_memory inst_mem(
+        .clk(clk_in),
+        .reset(rst_in),
+        .addr(32'b0),  // Address is 0 as you are directly connecting this to the core
+        .instruction(instruction)
+    );
+
+    // Connect the instruction memory to the RISC-V core
+    m_RISCV32I_ZICSR riscv_core(
+        .clk_in(clk_in),
+        .rst_in(rst_in),
+        // MMU interface (unconnected as requested)
+        .i_req(), 
+        .i_kill(), 
+        .i_vaddr(),
+        .icache_flush(),
+        .i_page_fault(),
+        .i_paddr(),
+        // Data bus interface (unconnected as requested)
+        .dbus_rdata_in(), 
+        .dbus_ack_in(), 
+        .dbus_addr_o(), 
+        .dbus_ld_req_o(), 
+        .dbus_st_req_o(), 
+        .dbus_W_data_o(), 
+        .dbus_byte_en(),
+        // MMU interface (unconnected as requested)
+        .ld_page_fault_in(),
+        .st_page_fault_in(),
+        .d_paddr_in(),
+        .d_hit_in(),
+        .satp_ppn_o(),
+        .en_vaddr_o(),
+        .mxr_o(),
+        .tlb_flush_o(),
+        .lsu_flush_o(),
+        .en_ld_st_vaddr_o(),
+        .dcache_flush_o(),
+        .sum_o(),
+        .priv_mode_o(),
+        .d_vaddr_o(),
+        .d_req_o(),
+        .st_req_o(),
+        // Debugging signals (connected as required)
+        .reg_x10(reg_x10),
+        .reg_x11(reg_x11),
+        .reg_mcause(reg_mcause),
+        .reg_mepc(reg_mepc),
+        .reg_mtval(reg_mtval)
+    );
+
+endmodule

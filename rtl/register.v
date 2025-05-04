@@ -19,9 +19,9 @@ module register
 //  Structural coding
 //=======================================================
 
-  always@(posedge clk or negedge reset )
+  always@(posedge clk or posedge reset )
   begin
-  	if(!reset)
+  	if(reset)
   		q <= Default_val;
   	else if(flush)
   	 	q <= Default_val;

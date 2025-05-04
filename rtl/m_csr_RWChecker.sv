@@ -34,8 +34,8 @@ always_comb begin
         end
         CSR_OPS_SET,
         CSR_OPS_CLEAR  : begin
-            csr_rd_req = 1'b1;
-            csr_wr_req = |rs1_addr;
+            csr_rd_req = |rd_addr;		
+            csr_wr_req = 1'b1;
         end
         default : begin
             csr_rd_req = 1'b0;

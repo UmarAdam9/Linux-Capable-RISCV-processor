@@ -1,6 +1,6 @@
 
 
-module c_controller //import risc_v_core_pkg::*;
+module c_controller import risc_v_core_pkg::*;
 (
   input             clk,
   input             reset, 

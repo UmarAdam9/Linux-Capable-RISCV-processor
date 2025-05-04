@@ -105,7 +105,7 @@ module m_RISCV32I_ZICSR    import risc_v_core_pkg::* ,tracer_pkg::*;
 		wire 			irq_flush_lsu;			// -Adam
 		
 		wire        PCWrite; 
-      wire        IF_Dwrite; 
+      wire        IF_DWrite; 
 		wire			ID_EXEwrite;			//-Adam
 		wire			EXE_MEMwrite;			//-Adam
 		
@@ -402,7 +402,7 @@ module m_RISCV32I_ZICSR    import risc_v_core_pkg::* ,tracer_pkg::*;
 
 	//Assigning values to the MMU interface	-Adam
 	assign i_vaddr = PC_out;
-// assign i_req	= 1b'1;		ireq = !stall & !flush
+// assign i_req	= 1b'1;
 	assign i_kill = csr_pc_reqid_fb2if | exe_pc_req_fb2if;
 	
 	
@@ -905,29 +905,27 @@ module m_RISCV32I_ZICSR    import risc_v_core_pkg::* ,tracer_pkg::*;
       .sc_w_inst_EX_MEM(sc_w_inst_EX_MEM    ),
       .sc_w_inst_MEM_WB(sc_w_inst_MEM_WB    ),
       .reserved       (reserved             ),
-		.instruction_in (inst_out_EX_MEM[6:0]	  ),	//exe_mem instruction here
+		.instruction_in (inst_out_EX_MEM	  ),	//exe_mem instruction here
       .forward_A      (forwardA             ), 
       .forward_B      (forwardB             )
     );
 
   //mux to select latest rs1 data using forwarding 
-    mux_5x1 mux_rs1(
+    mux_4x1 mux_rs1(
       .a     (rs1_out_ID_EX         ),  
       .b     (regfile_write_data    ), //mem hazard   
       .c     (alu_result_EX_MEM     ), //execute hazard
       .d     ((reserved_reg) ? 0:1  ),  //when sc.w hazard occurs this will go 
-		.e		 (rdata_csr2wb				),
       .s     (forwardA              ), 
       .q     (rs1_forwarded         )
     );
 
   //mux to select latest rs2 data using forwarding 
-    mux_5x1 mux_rs2(
+    mux_4x1 mux_rs2(
       .a     (rs2_out_ID_EX         ),  
       .b     (regfile_write_data    ), //mem hazard  
       .c     (alu_result_EX_MEM     ), //execute hazard
       .d     ((reserved_reg) ? 0:1  ),
-		.e		 ( rdata_csr2wb			),
       .s     (forwardB              ),  
       .q     (rs2_forwarded         )
     );
